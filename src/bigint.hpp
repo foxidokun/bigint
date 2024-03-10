@@ -39,7 +39,7 @@ class BigInt {
   BigInt& operator--();
   BigInt operator++(int);
   BigInt operator--(int);
-  BigInt operator-();
+  BigInt operator-() const;
 
   // Absurd & costly
   BigInt operator+() = delete;

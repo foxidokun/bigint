@@ -95,7 +95,7 @@ BigInt BigInt::operator--(int) {
   return *this;
 }
 
-BigInt BigInt::operator-() {
+BigInt BigInt::operator-() const {
   /*Not implemented*/
   return *this;
 }
