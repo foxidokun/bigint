@@ -1,5 +1,3 @@
 #include "bigint.hpp"
 
-int ans() {
-    return 42;
-}
+int ans() { return 42; }
