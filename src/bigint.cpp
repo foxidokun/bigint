@@ -5,6 +5,7 @@
 #include <cassert>
 #include <iostream>
 #include <iterator>
+#include <vector>
 
 static void AddBuffers(std::vector<uint32_t>& lhs,
                        const std::vector<uint32_t>& rhs);
@@ -14,7 +15,8 @@ SubBuffers(std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs);
 
 static BigInt::Sign MulSign(BigInt::Sign lhs, BigInt::Sign rhs);
 
-static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs);
+static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs,
+                                           const std::vector<uint32_t>& rhs);
 
 BigInt::BigInt(int64_t val) {
   if (val == 0) {
@@ -104,7 +106,39 @@ BigInt& BigInt::operator-=(const BigInt& other) {
 }
 
 BigInt& BigInt::operator*=(const BigInt& other) {
-  /*Not implemented*/
+  if (sign_ == Sign::Zero) {
+    return *this;
+  }
+
+  if (other.sign_ == Sign::Zero) {
+    *this = BigInt(0);
+    return *this;
+  }
+
+  sign_ = MulSign(sign_, other.sign_);
+
+  std::vector<uint32_t> new_digits(digits_.size() + other.digits_.size(), 0);
+
+  for (uint64_t i = 0; i < digits_.size(); ++i) {
+    for (uint64_t j = 0; j < other.digits_.size(); ++j) {
+      uint64_t carry = static_cast<uint64_t>(digits_[i]) * other.digits_[j];
+
+      for (int k = i+j; carry > 0; ++k) {
+        assert (k < new_digits.size());
+
+        carry += new_digits[k];
+        new_digits[k] = carry & UINT32_MAX;
+        carry >>= 32;
+      }
+    }
+  }
+
+  digits_ = std::move(new_digits);
+
+  while (digits_[digits_.size() - 1] == 0) {
+    digits_.pop_back();
+  }
+
   return *this;
 }
 
@@ -265,11 +299,8 @@ std::strong_ordering BigInt::operator<=>(const BigInt& other) const {
 
 bool BigInt::operator==(const BigInt& other) const {
   if (sign_ != other.sign_ || digits_.size() != other.digits_.size()) {
-    std::cout << "META DIFFERS\n";
     return false;
   }
-
-  std::cout << "META EQUAL\n";
 
   return std::equal(digits_.cbegin(), digits_.cend(), other.digits_.cbegin());
 }
@@ -408,12 +439,14 @@ static BigInt::Sign SubBuffers(std::vector<uint32_t>& lhs,
   }
 }
 
-static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs) {
+static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs,
+                                           const std::vector<uint32_t>& rhs) {
   if (lhs.size() > rhs.size()) {
     return std::strong_ordering::greater;
   } else if (lhs.size() < rhs.size()) {
     return std::strong_ordering::less;
   }
 
-  return std::lexicographical_compare_three_way(lhs.crbegin(), lhs.crend(), rhs.crbegin(), rhs.crend());
+  return std::lexicographical_compare_three_way(lhs.crbegin(), lhs.crend(),
+                                                rhs.crbegin(), rhs.crend());
 }

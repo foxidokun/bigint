@@ -105,11 +105,8 @@ TEST(MathTests, AddDangerousCase) {
   EXPECT_EQ("36893488147419103230"_bi, a + b);
 }
 
-TEST(MathTests, AddIntEasyPositive) {
+TEST(MathTests, AddIntEasy) {
   EXPECT_EQ(BigInt(774), BigInt(700) + 74);
-}
-
-TEST(MathTests, AddIntEasyNegative) {
   EXPECT_EQ(BigInt(-774), BigInt(-700) + (-74));
 }
 
@@ -125,23 +122,17 @@ TEST(MathTests, MullIntEasyPositive) {
   EXPECT_EQ(BigInt("100"), "10"_bi * 10);
 }
 
-TEST(MathTests, MullIntEasyNegativeBI) {
-  EXPECT_EQ(BigInt("-100"), "-10"_bi * 10);
-}
-
-TEST(MathTests, MullIntEasyNegativeInt) {
+TEST(MathTests, MullIntEasyNegative) {
   EXPECT_EQ(BigInt("-100"), "10"_bi * (-10));
+  EXPECT_EQ(BigInt("-100"), "-10"_bi * 10);
 }
 
 TEST(MathTests, MullIntOveflow) {
   EXPECT_EQ(BigInt("429496739000"), "429496739"_bi * (1000));
 }
 
-TEST(MathTests, MulIntZeroBI) {
+TEST(MathTests, MulIntZero) {
   EXPECT_EQ(BigInt("0"), "0"_bi * 5);
-}
-
-TEST(MathTests, MulIntZeroInt) {
   EXPECT_EQ(BigInt("0"), "5"_bi * 0);
 }
 
@@ -186,8 +177,7 @@ TEST(MathTests, Dec) {
 }
 
 TEST(MathTests, SubNormalEasy) {
-  EXPECT_EQ(BigInt("1000"), "3000"_bi -
-                                "2000"_bi);
+  EXPECT_EQ(BigInt("1000"), "3000"_bi - "2000"_bi);
 }
 
 TEST(MathTests, SubNormal) {
@@ -214,15 +204,11 @@ TEST(MathTests, SubLongBecomeZero) {
 }
 
 TEST(MathTests, SubDiffSign) {
-  EXPECT_EQ(BigInt("8"),
-            "5"_bi -
-                "-3"_bi);
+  EXPECT_EQ(BigInt("8"), "5"_bi - "-3"_bi);
 }
 
 TEST(MathTests, AddDiffSign) {
-  EXPECT_EQ(BigInt("2"),
-            "5"_bi +
-                "-3"_bi);
+  EXPECT_EQ(BigInt("2"), "5"_bi + "-3"_bi);
 }
 
 TEST(MathTests, SubBecomeZero) {
@@ -233,4 +219,25 @@ TEST(MathTests, SubBecomeZero) {
 TEST(MathTests, SubChangeSign) {
   EXPECT_EQ(BigInt("-100"), "1234545454545124154251425142521436271789"_bi -
                                 "1234545454545124154251425142521436271889"_bi);
+}
+
+TEST(MathTests, MulEasy) {
+  EXPECT_EQ(BigInt("1000"), "10"_bi * "100"_bi);
+}
+
+TEST(MathTests, MulEasySignChange) {
+  EXPECT_EQ(BigInt("-1000"), "-10"_bi * "100"_bi);
+  EXPECT_EQ(BigInt("-1000"), "10"_bi * "-100"_bi);
+}
+
+TEST(MathTests, MulZero) {
+  EXPECT_EQ(BigInt("0"), "0"_bi * "23476128734623840234612346173246"_bi);
+  EXPECT_EQ(BigInt("0"), "23476128734623840234612346173246"_bi * "0"_bi);
+}
+
+TEST(MathTests, MulLong) {
+  EXPECT_EQ(BigInt("18481280359097503715031163900685896473025652438629268511093"
+                   "968751798148844406"),
+            "23476128734623840234612346173246"_bi *
+                "787237136412543643838923374744297373452943461"_bi);
 }
