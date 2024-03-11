@@ -1,4 +1,5 @@
 #include "bigint.hpp"
+#include <stdint.h>
 #include <algorithm>
 #include <compare>
 #include <cstdint>
@@ -123,8 +124,8 @@ BigInt& BigInt::operator*=(const BigInt& other) {
     for (uint64_t j = 0; j < other.digits_.size(); ++j) {
       uint64_t carry = static_cast<uint64_t>(digits_[i]) * other.digits_[j];
 
-      for (int k = i+j; carry > 0; ++k) {
-        assert (k < new_digits.size());
+      for (int k = i + j; carry > 0; ++k) {
+        assert(k < new_digits.size());
 
         carry += new_digits[k];
         new_digits[k] = carry & UINT32_MAX;
@@ -142,8 +143,82 @@ BigInt& BigInt::operator*=(const BigInt& other) {
   return *this;
 }
 
+//TODO: refactor
 BigInt& BigInt::operator/=(const BigInt& other) {
-  /*Not implemented*/
+  if (other == BigInt(1)) {
+    return *this;
+  }
+
+  if (sign_ == Sign::Zero) {
+    return *this;
+  }
+
+  if (CompareBuffers(digits_, other.digits_) == std::strong_ordering::less) {
+    *this = BigInt(0);
+    return *this;
+  }
+
+  BigInt div = BigInt(0);
+  std::vector<uint32_t> zeros(std::max(digits_.size() - other.digits_.size(), 1ul) - 1, 0);
+
+  // Unoptimal shit
+  while (CompareBuffers(digits_, other.digits_) != std::strong_ordering::less) {
+    BigInt cur_div = other;
+    uint64_t zero_cnt = std::max(digits_.size() - other.digits_.size(), 1ul) - 1;
+
+    static int iter_num = 0;
+
+    if (zero_cnt > 0) {
+    cur_div.digits_.insert(
+        cur_div.digits_.begin(), zeros.begin(),
+        std::next(zeros.begin(), zero_cnt));
+    }
+
+    uint64_t head_lhs = digits_[digits_.size() - 1];
+    uint64_t head_rhs = 0;
+    if (digits_.size() > 1) {
+      head_lhs <<= 32;
+      head_lhs += digits_[digits_.size() - 2];
+
+      assert (digits_.size() - 2 < cur_div.digits_.size());
+      if (digits_.size() == cur_div.digits_.size()) {
+        head_rhs = cur_div.digits_[digits_.size() - 1];
+        head_rhs <<= 32;
+      }
+      head_rhs += cur_div.digits_[digits_.size() - 2];
+
+    } else {
+      assert (cur_div.digits_.size() == 1);
+      head_rhs = cur_div.digits_[digits_.size() - 1];
+    }
+    
+    BigInt div_t;
+    if (head_rhs != UINT64_MAX) {
+      div_t = BigInt(std::min(head_lhs / (head_rhs + 1), (uint64_t)INT64_MAX));
+    } else {
+      assert(head_rhs == head_lhs);
+      div_t = BigInt(1);
+    }
+
+    // std::cout << " head_lhs = " << head_lhs << " head_rhs = " << head_rhs << " div_t " << div_t << '\n';
+
+    BigInt div_res = BigInt(div_t);
+    if (zero_cnt > 0) {
+    div_res.digits_.insert(
+        div_res.digits_.begin(), zeros.begin(),
+        std::next(zeros.begin(), zero_cnt));
+    }
+
+    cur_div *= div_t;
+
+    assert (CompareBuffers(digits_, cur_div.digits_) != std::strong_ordering::less);
+    assert (sign_ == Sign::Positive);
+    assert (cur_div.sign_ == Sign::Positive);
+    *this -= cur_div;
+    div += div_res;
+  }
+
+  *this = std::move(div);
   return *this;
 }
 
@@ -389,6 +464,18 @@ SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
   // Substraction phase
   for (; lhs_it < lhs_end && rhs_it < rhs_end; ++lhs_it, ++rhs_it, ++out_it) {
     carry += *rhs_it;
+    uint64_t digit = *lhs_it;
+
+    if (digit >= carry) {
+      *out_it = digit - carry;
+      carry = 0;
+    } else {
+      *out_it = UINT32_MAX - carry + digit + 1;
+      carry = 1;
+    }
+  }
+
+  for (; lhs_it < lhs_end; ++lhs_it, ++out_it) {
     uint64_t digit = *lhs_it;
 
     if (digit >= carry) {
