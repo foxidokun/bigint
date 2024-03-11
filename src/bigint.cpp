@@ -143,7 +143,7 @@ BigInt& BigInt::operator*=(const BigInt& other) {
   return *this;
 }
 
-//TODO: refactor
+// TODO: refactor
 BigInt& BigInt::operator/=(const BigInt& other) {
   if (other == BigInt(1)) {
     return *this;
@@ -159,19 +159,20 @@ BigInt& BigInt::operator/=(const BigInt& other) {
   }
 
   BigInt div = BigInt(0);
-  std::vector<uint32_t> zeros(std::max(digits_.size() - other.digits_.size(), 1ul) - 1, 0);
+  std::vector<uint32_t> zeros(
+      std::max(digits_.size() - other.digits_.size(), 1ul) - 1, 0);
 
   // Unoptimal shit
   while (CompareBuffers(digits_, other.digits_) != std::strong_ordering::less) {
     BigInt cur_div = other;
-    uint64_t zero_cnt = std::max(digits_.size() - other.digits_.size(), 1ul) - 1;
+    uint64_t zero_cnt =
+        std::max(digits_.size() - other.digits_.size(), 1ul) - 1;
 
     static int iter_num = 0;
 
     if (zero_cnt > 0) {
-    cur_div.digits_.insert(
-        cur_div.digits_.begin(), zeros.begin(),
-        std::next(zeros.begin(), zero_cnt));
+      cur_div.digits_.insert(cur_div.digits_.begin(), zeros.begin(),
+                             std::next(zeros.begin(), zero_cnt));
     }
 
     uint64_t head_lhs = digits_[digits_.size() - 1];
@@ -180,7 +181,7 @@ BigInt& BigInt::operator/=(const BigInt& other) {
       head_lhs <<= 32;
       head_lhs += digits_[digits_.size() - 2];
 
-      assert (digits_.size() - 2 < cur_div.digits_.size());
+      assert(digits_.size() - 2 < cur_div.digits_.size());
       if (digits_.size() == cur_div.digits_.size()) {
         head_rhs = cur_div.digits_[digits_.size() - 1];
         head_rhs <<= 32;
@@ -188,10 +189,10 @@ BigInt& BigInt::operator/=(const BigInt& other) {
       head_rhs += cur_div.digits_[digits_.size() - 2];
 
     } else {
-      assert (cur_div.digits_.size() == 1);
+      assert(cur_div.digits_.size() == 1);
       head_rhs = cur_div.digits_[digits_.size() - 1];
     }
-    
+
     BigInt div_t;
     if (head_rhs != UINT64_MAX) {
       div_t = BigInt(std::min(head_lhs / (head_rhs + 1), (uint64_t)INT64_MAX));
@@ -200,20 +201,18 @@ BigInt& BigInt::operator/=(const BigInt& other) {
       div_t = BigInt(1);
     }
 
-    // std::cout << " head_lhs = " << head_lhs << " head_rhs = " << head_rhs << " div_t " << div_t << '\n';
-
     BigInt div_res = BigInt(div_t);
     if (zero_cnt > 0) {
-    div_res.digits_.insert(
-        div_res.digits_.begin(), zeros.begin(),
-        std::next(zeros.begin(), zero_cnt));
+      div_res.digits_.insert(div_res.digits_.begin(), zeros.begin(),
+                             std::next(zeros.begin(), zero_cnt));
     }
 
     cur_div *= div_t;
 
-    assert (CompareBuffers(digits_, cur_div.digits_) != std::strong_ordering::less);
-    assert (sign_ == Sign::Positive);
-    assert (cur_div.sign_ == Sign::Positive);
+    assert(CompareBuffers(digits_, cur_div.digits_) !=
+           std::strong_ordering::less);
+    assert(sign_ == Sign::Positive);
+    assert(cur_div.sign_ == Sign::Positive);
     *this -= cur_div;
     div += div_res;
   }
