@@ -66,6 +66,9 @@ class BigInt {
         digits_(std::move(digits)) {
   }
 
+  static Sign OppositeSign(Sign);
+  bool IsSameSignAs(int32_t);
+
   Sign sign_{Sign::Zero};
   std::vector<uint32_t> digits_;
 };

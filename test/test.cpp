@@ -137,3 +137,43 @@ TEST(MathTests, MulIntZeroBI) {
 TEST(MathTests, MulIntZeroInt) {
   EXPECT_EQ(BigInt("0"), "5"_bi * 0);
 }
+
+TEST(MathTests, SubIntZeroInt) {
+  EXPECT_EQ(BigInt("5"), "5"_bi - 0);
+}
+
+TEST(MathTests, SubNegativities) {
+  EXPECT_EQ(BigInt("2"), "-2"_bi - (-4));
+}
+
+TEST(MathTests, SubIntZeroBi) {
+  EXPECT_EQ(BigInt("-5"), "0"_bi - 5);
+}
+
+TEST(MathTests, SubIntDownFlow) {
+  EXPECT_EQ(BigInt("4294967195"), "4294967295"_bi - 100);
+}
+
+TEST(MathTests, SubIntBecomeZero) {
+  EXPECT_EQ(BigInt("0"), "100"_bi - 100);
+}
+
+TEST(MathTests, SubIntBecomeZeroNegative) {
+  EXPECT_EQ(BigInt("0"), "-100"_bi - (-100));
+}
+
+TEST(MathTests, Inc) {
+  auto x = "3"_bi;
+  EXPECT_EQ(BigInt("3"), x++);
+  EXPECT_EQ(BigInt("4"), x);
+  EXPECT_EQ(BigInt("5"), ++x);
+  EXPECT_EQ(BigInt("5"), x);
+}
+
+TEST(MathTests, Dec) {
+  auto x = "5"_bi;
+  EXPECT_EQ(BigInt("5"), x--);
+  EXPECT_EQ(BigInt("4"), x);
+  EXPECT_EQ(BigInt("3"), --x);
+  EXPECT_EQ(BigInt("3"), x);
+}

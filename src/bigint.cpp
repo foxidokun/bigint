@@ -121,8 +121,7 @@ BigInt& BigInt::operator+=(int32_t other) {
     return *this;
   }
 
-  if ((other < 0 && sign_ == Sign::Positive) ||
-      (other > 0 && sign_ == Sign::Negative)) {
+  if (!IsSameSignAs(other)) {
     *this -= -other;
     return *this;
   }
@@ -143,7 +142,54 @@ BigInt& BigInt::operator+=(int32_t other) {
 }
 
 BigInt& BigInt::operator-=(int32_t other) {
-  /*Not implemented*/
+  if (other == 0) {
+    return *this;
+  }
+
+  if (sign_ == Sign::Zero) {
+    *this = BigInt(-other);
+    return *this;
+  }
+
+  uint64_t carry = (other > 0) ? other : -other;
+
+  if (!IsSameSignAs(other)) {
+    *this += -other;
+    return *this;
+  }
+
+  if (digits_.size() == 1) {
+    if (digits_[0] > carry) {
+      digits_[0] -= carry;
+    } else if (digits_[0] < carry) {
+      digits_[0] = carry - digits_[0];
+      sign_ = OppositeSign(sign_);
+    } else {
+      digits_.clear();
+      sign_ = Sign::Zero;
+    }
+
+    return *this;
+  }
+
+  for (auto& digit : digits_) {
+    if (digit > carry) {
+      digit = digit - carry;
+      carry = 0;
+    } else {
+      digit = UINT32_MAX - carry + digit;
+      carry = 1;
+    }
+  }
+  
+  // GC if needed
+  if (digits_[digits_.size()] == 0) {
+    digits_.pop_back();
+  }
+
+  assert (carry == 0);
+  assert (digits_[digits_.size()] != 0);
+
   return *this;
 }
 
@@ -158,7 +204,7 @@ BigInt& BigInt::operator*=(int32_t other) {
   }
 
   if (other < 0) {
-    sign_ = (sign_ == Sign::Positive) ? Sign::Negative : Sign::Positive;
+    sign_ = OppositeSign(sign_);
     other = -other;
   }
 
@@ -178,28 +224,31 @@ BigInt& BigInt::operator*=(int32_t other) {
 }
 
 BigInt& BigInt::operator++() {
-  /*Not implemented*/
+  *this += 1;
   return *this;
 }
 
 BigInt& BigInt::operator--() {
-  /*Not implemented*/
+  *this -= 1;
   return *this;
 }
 
 BigInt BigInt::operator++(int) {
-  /*Not implemented*/
-  return *this;
+  BigInt copy = *this;
+  *this += 1;
+  return copy;
 }
 
 BigInt BigInt::operator--(int) {
-  /*Not implemented*/
-  return *this;
+  BigInt copy = *this;
+  *this -= 1;
+  return copy;
 }
 
 BigInt BigInt::operator-() const {
-  /*Not implemented*/
-  return *this;
+  BigInt copy = *this;
+  copy.sign_ = OppositeSign(sign_);
+  return copy;
 }
 
 std::strong_ordering BigInt::operator<=>(const BigInt& other) const {
@@ -213,6 +262,20 @@ bool BigInt::operator==(const BigInt& other) const {
   }
 
   return std::equal(digits_.cbegin(), digits_.cend(), other.digits_.cbegin());
+}
+
+BigInt::Sign BigInt::OppositeSign(Sign sign) {
+  switch (sign) {
+    case Sign::Negative: return Sign::Positive;
+    case Sign::Zero: return Sign::Zero;
+    case Sign::Positive: return Sign::Negative;
+  }
+}
+
+bool BigInt::IsSameSignAs(int32_t val) {
+  return (val < 0 && sign_ == Sign::Negative) ||
+         (val > 0 && sign_ == Sign::Positive) ||
+         (val == 0 && sign_ == Sign::Zero);
 }
 
 static void AddBuffers(std::vector<uint32_t>& lhs,
