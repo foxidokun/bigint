@@ -168,8 +168,6 @@ BigInt& BigInt::operator/=(const BigInt& other) {
     uint64_t zero_cnt =
         std::max(digits_.size() - other.digits_.size(), 1ul) - 1;
 
-    static int iter_num = 0;
-
     if (zero_cnt > 0) {
       cur_div.digits_.insert(cur_div.digits_.begin(), zeros.begin(),
                              std::next(zeros.begin(), zero_cnt));
