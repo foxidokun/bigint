@@ -11,9 +11,9 @@
 // чтобы заработал конструктор от строки
 
 class BigInt {
+ public:
   enum class Sign : int8_t { Negative, Zero, Positive };
 
- public:
   // default ctor
   BigInt() = default;
 

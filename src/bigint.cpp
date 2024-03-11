@@ -8,8 +8,13 @@
 
 static void AddBuffers(std::vector<uint32_t>& lhs,
                        const std::vector<uint32_t>& rhs);
-static void SubBuffers(std::vector<uint32_t>& lhs,
-                       const std::vector<uint32_t>& rhs);
+
+[[nodiscard("You should check for sign change")]] static BigInt::Sign
+SubBuffers(std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs);
+
+static BigInt::Sign MulSign(BigInt::Sign lhs, BigInt::Sign rhs);
+
+static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs);
 
 BigInt::BigInt(int64_t val) {
   if (val == 0) {
@@ -69,7 +74,8 @@ BigInt& BigInt::operator+=(const BigInt& other) {
   if (sign_ == other.sign_) {
     AddBuffers(digits_, other.digits_);
   } else {
-    SubBuffers(digits_, other.digits_);
+    auto res_sign = SubBuffers(digits_, other.digits_);
+    sign_ = MulSign(res_sign, sign_);
   }
 
   return *this;
@@ -88,7 +94,8 @@ BigInt& BigInt::operator-=(const BigInt& other) {
 
   // Check signs
   if (sign_ == other.sign_) {
-    SubBuffers(digits_, other.digits_);
+    auto res_sign = SubBuffers(digits_, other.digits_);
+    sign_ = MulSign(res_sign, sign_);
   } else {
     AddBuffers(digits_, other.digits_);
   }
@@ -173,7 +180,7 @@ BigInt& BigInt::operator-=(int32_t other) {
   }
 
   for (auto& digit : digits_) {
-    if (digit > carry) {
+    if (digit >= carry) {
       digit = digit - carry;
       carry = 0;
     } else {
@@ -181,14 +188,14 @@ BigInt& BigInt::operator-=(int32_t other) {
       carry = 1;
     }
   }
-  
+
   // GC if needed
-  if (digits_[digits_.size()] == 0) {
+  if (digits_[digits_.size() - 1] == 0) {
     digits_.pop_back();
   }
 
-  assert (carry == 0);
-  assert (digits_[digits_.size()] != 0);
+  assert(carry == 0);
+  assert(digits_[digits_.size() - 1] != 0);
 
   return *this;
 }
@@ -258,17 +265,23 @@ std::strong_ordering BigInt::operator<=>(const BigInt& other) const {
 
 bool BigInt::operator==(const BigInt& other) const {
   if (sign_ != other.sign_ || digits_.size() != other.digits_.size()) {
+    std::cout << "META DIFFERS\n";
     return false;
   }
+
+  std::cout << "META EQUAL\n";
 
   return std::equal(digits_.cbegin(), digits_.cend(), other.digits_.cbegin());
 }
 
 BigInt::Sign BigInt::OppositeSign(Sign sign) {
   switch (sign) {
-    case Sign::Negative: return Sign::Positive;
-    case Sign::Zero: return Sign::Zero;
-    case Sign::Positive: return Sign::Negative;
+    case Sign::Negative:
+      return Sign::Positive;
+    case Sign::Zero:
+      return Sign::Zero;
+    case Sign::Positive:
+      return Sign::Negative;
   }
 }
 
@@ -330,6 +343,77 @@ static void AddBuffers(std::vector<uint32_t>& lhs,
   }
 }
 
-static void SubBuffers(std::vector<uint32_t>& lhs,
-                       const std::vector<uint32_t>& rhs) {
+[[nodiscard("You should check for sign = zero")]] static BigInt::Sign
+SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
+             std::vector<uint32_t>& out) {
+  out.reserve(lhs.size());
+
+  uint64_t carry = 0;
+  auto lhs_it = lhs.begin();
+  auto rhs_it = rhs.begin();
+  auto out_it = out.begin();
+  const auto lhs_end = lhs.end();
+  const auto rhs_end = rhs.end();
+
+  // Substraction phase
+  for (; lhs_it < lhs_end && rhs_it < rhs_end; ++lhs_it, ++rhs_it, ++out_it) {
+    carry += *rhs_it;
+    uint64_t digit = *lhs_it;
+
+    if (digit >= carry) {
+      *out_it = digit - carry;
+      carry = 0;
+    } else {
+      *out_it = UINT32_MAX - carry + digit + 1;
+      carry = 1;
+    }
+  }
+
+  assert(carry == 0);
+
+  // GC Stage
+  while (!out.empty() && out[out.size() - 1] == 0) {
+    out.pop_back();
+  }
+
+  if (out.empty()) {
+    return BigInt::Sign::Zero;
+  } else {
+    return BigInt::Sign::Positive;
+  }
+}
+
+static BigInt::Sign MulSign(BigInt::Sign lhs, BigInt::Sign rhs) {
+  if (lhs == BigInt::Sign::Zero || rhs == BigInt::Sign::Zero) {
+    return BigInt::Sign::Zero;
+  }
+
+  if (lhs == rhs) {
+    return BigInt::Sign::Positive;
+  } else {
+    return BigInt::Sign::Negative;
+  }
+}
+
+// return bool: needed sign change
+static BigInt::Sign SubBuffers(std::vector<uint32_t>& lhs,
+                               const std::vector<uint32_t>& rhs) {
+  // lhs > rhs
+  if (CompareBuffers(lhs, rhs) != std::strong_ordering::less) {
+    auto sign = SubBuffersTo(lhs, rhs, lhs);
+    return MulSign(sign, BigInt::Sign::Positive);
+  } else {
+    auto sign = SubBuffersTo(rhs, lhs, lhs);
+    return MulSign(sign, BigInt::Sign::Negative);
+  }
+}
+
+static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs) {
+  if (lhs.size() > rhs.size()) {
+    return std::strong_ordering::greater;
+  } else if (lhs.size() < rhs.size()) {
+    return std::strong_ordering::less;
+  }
+
+  return std::lexicographical_compare_three_way(lhs.crbegin(), lhs.crend(), rhs.crbegin(), rhs.crend());
 }
