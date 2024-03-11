@@ -3,6 +3,13 @@
 #include <string_view>
 #include <vector>
 
+// TODO: более оптимальные += для int и соответственно операторы (int + BigInt),
+// (Bigint + int)
+// TODO: так же можно написать сравнения наверное
+
+// TODO: оптиизированное умножение на int64 стоит написать раньше обычного,
+// чтобы заработал конструктор от строки
+
 class BigInt {
   enum class Sign : int8_t { Negative, Zero, Positive };
 
@@ -34,6 +41,11 @@ class BigInt {
   BigInt& operator/=(const BigInt& other);
   BigInt& operator%=(const BigInt& other);
 
+  // Int Operations
+  BigInt& operator+=(int32_t other);
+  BigInt& operator-=(int32_t other);
+  BigInt& operator*=(int32_t other);
+
   // Small math
   BigInt& operator++();
   BigInt& operator--();
@@ -49,21 +61,17 @@ class BigInt {
   bool operator==(const BigInt& other) const;
 
  private:
-  BigInt(Sign sign, std::vector<uint64_t> digits)
+  BigInt(Sign sign, std::vector<uint32_t> digits)
       : sign_(sign),
         digits_(std::move(digits)) {
   }
 
   Sign sign_{Sign::Zero};
-  std::vector<uint64_t> digits_;
+  std::vector<uint32_t> digits_;
 };
 
-static BigInt operator""_bi(unsigned long long val) {  // NOLINT
-  return BigInt(val);
-}
-
-static BigInt operator""_bi(const char* val) {
-  return BigInt(val);
+static BigInt operator""_bi(const char* val, std::size_t len) {
+  return BigInt(std::string_view(val, len));
 }
 
 static BigInt operator+(BigInt self, const BigInt& other) {
@@ -77,6 +85,36 @@ static BigInt operator-(BigInt self, const BigInt& other) {
 }
 
 static BigInt operator*(BigInt self, const BigInt& other) {
+  self *= other;
+  return self;
+}
+
+static BigInt operator+(BigInt self, int32_t other) {
+  self += other;
+  return self;
+}
+
+static BigInt operator-(BigInt self, int32_t other) {
+  self -= other;
+  return self;
+}
+
+static BigInt operator*(BigInt self, int32_t other) {
+  self *= other;
+  return self;
+}
+
+static BigInt operator+(int32_t other, BigInt self) {
+  self += other;
+  return self;
+}
+
+static BigInt operator-(int32_t other, BigInt self) {
+  self -= other;
+  return self;
+}
+
+static BigInt operator*(int32_t other, BigInt self) {
   self *= other;
   return self;
 }
