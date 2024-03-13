@@ -182,7 +182,6 @@ BigInt& BigInt::operator/=(const BigInt& other) {
 
   while ((cmp = CompareBuffers(digits_, other.digits_)) ==
          std::strong_ordering::greater) {
-    
     BigInt cur_sub = other;
     cur_sub.sign_ = Sign::Positive;
 
@@ -211,10 +210,11 @@ BigInt& BigInt::operator/=(const BigInt& other) {
 uint64_t BigInt::GetHead(int64_t start_index) const {
   uint64_t ans = 0;
 
-  if (!digits_.empty() && start_index <= static_cast<int64_t>(digits_.size() - 1)) {
+  if (!digits_.empty() &&
+      start_index <= static_cast<int64_t>(digits_.size() - 1)) {
     ans += digits_[digits_.size() - 1];
   }
-    
+
   if (digits_.size() > 1 && start_index <= digits_.size() - 2) {
     ans <<= 32;
     ans |= digits_[digits_.size() - 2];
@@ -427,10 +427,10 @@ void BigInt::LeftShift(uint32_t digit_num) {
 
   // Dumb iterator to insert zeros
   struct ZeroGenerator {
-    using iterator_category = std::input_iterator_tag; // NOLINT
-    using value_type = uint32_t; // NOLINT
-    using difference_type = uint32_t; // NOLINT
-    using reference = uint32_t; // NOLINT
+    using iterator_category = std::input_iterator_tag;  // NOLINT
+    using value_type = uint32_t;                        // NOLINT
+    using difference_type = uint32_t;                   // NOLINT
+    using reference = uint32_t;                         // NOLINT
 
     uint32_t operator*() const {
       return 0;
@@ -443,7 +443,7 @@ void BigInt::LeftShift(uint32_t digit_num) {
 
     bool operator==(const ZeroGenerator&) const = default;
 
-    static ZeroGenerator end() { // NOLINT
+    static ZeroGenerator end() {  // NOLINT
       return ZeroGenerator{0};
     }
 
@@ -451,7 +451,7 @@ void BigInt::LeftShift(uint32_t digit_num) {
   };
 
   digits_.insert(digits_.begin(), ZeroGenerator{digit_num},
-                            ZeroGenerator::end());
+                 ZeroGenerator::end());
 }
 
 static void AddBuffers(std::vector<uint32_t>& lhs,
