@@ -1,14 +1,9 @@
 #include <compare>
 #include <cstdint>
+#include <istream>
+#include <ostream>
 #include <string_view>
 #include <vector>
-
-// TODO: более оптимальные += для int и соответственно операторы (int + BigInt),
-// (Bigint + int)
-// TODO: так же можно написать сравнения наверное
-
-// TODO: оптиизированное умножение на int64 стоит написать раньше обычного,
-// чтобы заработал конструктор от строки
 
 class BigInt {
  public:
@@ -68,6 +63,8 @@ class BigInt {
 
   static Sign OppositeSign(Sign);
   bool IsSameSignAs(int32_t);
+
+  friend std::ostream& operator<<(std::ostream& stream, BigInt val);
 
   Sign sign_{Sign::Zero};
   std::vector<uint32_t> digits_;
@@ -131,3 +128,5 @@ static BigInt operator%(BigInt self, const BigInt& other) {
   self %= other;
   return self;
 }
+
+std::istream& operator>>(std::istream& stream, BigInt& val);

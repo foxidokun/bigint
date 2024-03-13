@@ -162,8 +162,9 @@ BigInt& BigInt::operator/=(const BigInt& other) {
   std::vector<uint32_t> zeros(
       std::max(digits_.size() - other.digits_.size(), 1ul) - 1, 0);
 
+  std::strong_ordering cmp = std::strong_ordering::equal;
   // Unoptimal shit
-  while (CompareBuffers(digits_, other.digits_) != std::strong_ordering::less) {
+  while ((cmp = CompareBuffers(digits_, other.digits_)) == std::strong_ordering::greater) {
     BigInt cur_div = other;
     uint64_t zero_cnt =
         std::max(digits_.size() - other.digits_.size(), 1ul) - 1;
@@ -207,12 +208,16 @@ BigInt& BigInt::operator/=(const BigInt& other) {
 
     cur_div *= div_t;
 
-    assert(CompareBuffers(digits_, cur_div.digits_) !=
-           std::strong_ordering::less);
-    assert(sign_ == Sign::Positive);
-    assert(cur_div.sign_ == Sign::Positive);
+    // assert(CompareBuffers(digits_, cur_div.digits_) !=
+    //        std::strong_ordering::less);
+    // assert(sign_ == Sign::Positive);
+    // assert(cur_div.sign_ == Sign::Positive);
     *this -= cur_div;
     div += div_res;
+  }
+
+  if (cmp == std::strong_ordering::equal) {
+    div += 1;
   }
 
   *this = std::move(div);
@@ -220,7 +225,7 @@ BigInt& BigInt::operator/=(const BigInt& other) {
 }
 
 BigInt& BigInt::operator%=(const BigInt& other) {
-  /*Not implemented*/
+  *this = *this - (*this / other) * other;
   return *this;
 }
 
@@ -365,8 +370,25 @@ BigInt BigInt::operator-() const {
 }
 
 std::strong_ordering BigInt::operator<=>(const BigInt& other) const {
-  /*Not implemented*/
-  return std::strong_ordering::equal;
+  if (sign_ == other.sign_) {
+    if (sign_ == Sign::Zero) { return std::strong_ordering::equal; }
+
+    auto buf_cmp = CompareBuffers(digits_, other.digits_);
+    if (sign_ == Sign::Positive) {
+      return buf_cmp;
+    } else {
+      return nullptr <=> buf_cmp;
+    }
+  }
+
+  switch (sign_) {
+    case Sign::Positive: return std::strong_ordering::greater;
+    case Sign::Negative: return std::strong_ordering::less;
+    case Sign::Zero:
+      return (other.sign_ == Sign::Negative) ? std::strong_ordering::greater : std::strong_ordering::less;
+  }
+
+  assert(false);
 }
 
 bool BigInt::operator==(const BigInt& other) const {
@@ -533,4 +555,27 @@ static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs,
 
   return std::lexicographical_compare_three_way(lhs.crbegin(), lhs.crend(),
                                                 rhs.crbegin(), rhs.crend());
+}
+
+std::ostream& operator<<(std::ostream& stream, BigInt val) {
+  BigInt base(10);
+  std::string buf;
+
+  while (val) {
+    buf += (val % base).digits_[0];
+    val /= base;
+  }
+
+  std::copy(buf.crbegin(), buf.crend(), std::ostream_iterator<int>(stream));
+
+  return stream;
+}
+
+std::istream& operator>>(std::istream& stream, BigInt& val) {
+  std::string buf;
+  stream >> buf;
+
+  val = BigInt(buf);
+
+  return stream;
 }
