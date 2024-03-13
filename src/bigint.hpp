@@ -55,6 +55,8 @@ class BigInt {
   std::strong_ordering operator<=>(const BigInt& other) const;
   bool operator==(const BigInt& other) const;
 
+  void LeftShift(uint32_t digit_num);
+
  private:
   BigInt(Sign sign, std::vector<uint32_t> digits)
       : sign_(sign),

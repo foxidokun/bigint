@@ -8,7 +8,7 @@
 #include <iterator>
 #include <vector>
 
-// Перенести в private методы BigInt
+// ----------------------------------------------------------------------------
 
 static void AddBuffers(std::vector<uint32_t>& lhs,
                        const std::vector<uint32_t>& rhs);
@@ -18,6 +18,8 @@ SubBuffers(std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs);
 
 static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs,
                                            const std::vector<uint32_t>& rhs);
+
+// ----------------------------------------------------------------------------
 
 BigInt::BigInt(int64_t val) {
   if (val == 0) {
@@ -175,10 +177,7 @@ BigInt& BigInt::operator/=(const BigInt& other) {
     uint64_t zero_cnt =
         std::max(digits_.size() - other.digits_.size(), 1ul) - 1;
 
-    if (zero_cnt > 0) {
-      cur_div.digits_.insert(cur_div.digits_.begin(), zeros.begin(),
-                             std::next(zeros.begin(), zero_cnt));
-    }
+    cur_div.LeftShift(zero_cnt);
 
     uint64_t head_lhs = digits_[digits_.size() - 1];
     uint64_t head_rhs = 0;
@@ -207,10 +206,7 @@ BigInt& BigInt::operator/=(const BigInt& other) {
     }
 
     BigInt div_res = BigInt(div_t);
-    if (zero_cnt > 0) {
-      div_res.digits_.insert(div_res.digits_.begin(), zeros.begin(),
-                             std::next(zeros.begin(), zero_cnt));
-    }
+    div_res.LeftShift(zero_cnt);
 
     cur_div *= div_t;
 
@@ -424,6 +420,40 @@ bool BigInt::IsSameSignAs(int32_t val) {
          (val == 0 && sign_ == Sign::Zero);
 }
 
+void BigInt::LeftShift(uint32_t digit_num) {
+  if (digit_num == 0) {
+    return;
+  }
+
+  // Dumb iterator to insert zeros
+  struct ZeroGenerator {
+    using iterator_category = std::input_iterator_tag; // NOLINT
+    using value_type = uint32_t; // NOLINT
+    using difference_type = uint32_t; // NOLINT
+    using reference = uint32_t; // NOLINT
+
+    uint32_t operator*() const {
+      return 0;
+    }
+
+    ZeroGenerator& operator++() {
+      --counter;
+      return *this;
+    }
+
+    bool operator==(const ZeroGenerator&) const = default;
+
+    static ZeroGenerator end() { // NOLINT
+      return ZeroGenerator{0};
+    }
+
+    uint32_t counter;
+  };
+
+  digits_.insert(digits_.begin(), ZeroGenerator{digit_num},
+                            ZeroGenerator::end());
+}
+
 static void AddBuffers(std::vector<uint32_t>& lhs,
                        const std::vector<uint32_t>& rhs) {
   uint64_t carry = 0;
@@ -540,10 +570,9 @@ BigInt::Sign operator*(const BigInt::Sign& lhs, const BigInt::Sign& rhs) {
   }
 }
 
-// return bool: needed sign change
 static BigInt::Sign SubBuffers(std::vector<uint32_t>& lhs,
                                const std::vector<uint32_t>& rhs) {
-  // lhs > rhs
+  // lhs >= rhs
   if (CompareBuffers(lhs, rhs) != std::strong_ordering::less) {
     auto sign = SubBuffersTo(lhs, rhs, lhs);
     return sign * BigInt::Sign::Positive;
