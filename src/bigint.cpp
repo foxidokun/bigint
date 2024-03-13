@@ -8,13 +8,13 @@
 #include <iterator>
 #include <vector>
 
+// Перенести в private методы BigInt
+
 static void AddBuffers(std::vector<uint32_t>& lhs,
                        const std::vector<uint32_t>& rhs);
 
 [[nodiscard("You should check for sign change")]] static BigInt::Sign
 SubBuffers(std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs);
-
-static BigInt::Sign MulSign(BigInt::Sign lhs, BigInt::Sign rhs);
 
 static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs,
                                            const std::vector<uint32_t>& rhs);
@@ -78,7 +78,7 @@ BigInt& BigInt::operator+=(const BigInt& other) {
     AddBuffers(digits_, other.digits_);
   } else {
     auto res_sign = SubBuffers(digits_, other.digits_);
-    sign_ = MulSign(res_sign, sign_);
+    sign_ = sign_ * res_sign;
   }
 
   return *this;
@@ -98,7 +98,7 @@ BigInt& BigInt::operator-=(const BigInt& other) {
   // Check signs
   if (sign_ == other.sign_) {
     auto res_sign = SubBuffers(digits_, other.digits_);
-    sign_ = MulSign(res_sign, sign_);
+    sign_ = sign_ * res_sign;
   } else {
     AddBuffers(digits_, other.digits_);
   }
@@ -116,7 +116,7 @@ BigInt& BigInt::operator*=(const BigInt& other) {
     return *this;
   }
 
-  sign_ = MulSign(sign_, other.sign_);
+  sign_ = sign_ * other.sign_;
 
   std::vector<uint32_t> new_digits(digits_.size() + other.digits_.size(), 0);
 
@@ -158,7 +158,7 @@ BigInt& BigInt::operator/=(const BigInt& other) {
     return *this;
   }
 
-  auto res_sign = MulSign(sign_, other.sign_);
+  auto res_sign = sign_ * other.sign_;
   sign_ = Sign::Positive;
 
   BigInt div = BigInt(0);
@@ -167,7 +167,8 @@ BigInt& BigInt::operator/=(const BigInt& other) {
 
   std::strong_ordering cmp = std::strong_ordering::equal;
   // Unoptimal shit
-  while ((cmp = CompareBuffers(digits_, other.digits_)) == std::strong_ordering::greater) {
+  while ((cmp = CompareBuffers(digits_, other.digits_)) ==
+         std::strong_ordering::greater) {
     BigInt cur_div = other;
     cur_div.sign_ = Sign::Positive;
 
@@ -213,10 +214,6 @@ BigInt& BigInt::operator/=(const BigInt& other) {
 
     cur_div *= div_t;
 
-    // assert(CompareBuffers(digits_, cur_div.digits_) !=
-          //  std::strong_ordering::less);
-    // assert(sign_ == Sign::Positive);
-    // assert(cur_div.sign_ == Sign::Positive);
     *this -= cur_div;
     div += div_res;
   }
@@ -377,7 +374,9 @@ BigInt BigInt::operator-() const {
 
 std::strong_ordering BigInt::operator<=>(const BigInt& other) const {
   if (sign_ == other.sign_) {
-    if (sign_ == Sign::Zero) { return std::strong_ordering::equal; }
+    if (sign_ == Sign::Zero) {
+      return std::strong_ordering::equal;
+    }
 
     auto buf_cmp = CompareBuffers(digits_, other.digits_);
     if (sign_ == Sign::Positive) {
@@ -388,10 +387,13 @@ std::strong_ordering BigInt::operator<=>(const BigInt& other) const {
   }
 
   switch (sign_) {
-    case Sign::Positive: return std::strong_ordering::greater;
-    case Sign::Negative: return std::strong_ordering::less;
+    case Sign::Positive:
+      return std::strong_ordering::greater;
+    case Sign::Negative:
+      return std::strong_ordering::less;
     case Sign::Zero:
-      return (other.sign_ == Sign::Negative) ? std::strong_ordering::greater : std::strong_ordering::less;
+      return (other.sign_ == Sign::Negative) ? std::strong_ordering::greater
+                                             : std::strong_ordering::less;
   }
 
   assert(false);
@@ -526,7 +528,7 @@ SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
   }
 }
 
-static BigInt::Sign MulSign(BigInt::Sign lhs, BigInt::Sign rhs) {
+BigInt::Sign operator*(const BigInt::Sign& lhs, const BigInt::Sign& rhs) {
   if (lhs == BigInt::Sign::Zero || rhs == BigInt::Sign::Zero) {
     return BigInt::Sign::Zero;
   }
@@ -544,10 +546,10 @@ static BigInt::Sign SubBuffers(std::vector<uint32_t>& lhs,
   // lhs > rhs
   if (CompareBuffers(lhs, rhs) != std::strong_ordering::less) {
     auto sign = SubBuffersTo(lhs, rhs, lhs);
-    return MulSign(sign, BigInt::Sign::Positive);
+    return sign * BigInt::Sign::Positive;
   } else {
     auto sign = SubBuffersTo(rhs, lhs, lhs);
-    return MulSign(sign, BigInt::Sign::Negative);
+    return sign * BigInt::Sign::Negative;
   }
 }
 

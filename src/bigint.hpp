@@ -65,6 +65,7 @@ class BigInt {
   bool IsSameSignAs(int32_t);
 
   friend std::ostream& operator<<(std::ostream& stream, BigInt val);
+  friend Sign operator*(const Sign& lhs, const Sign& rhs);
 
   Sign sign_{Sign::Zero};
   std::vector<uint32_t> digits_;
