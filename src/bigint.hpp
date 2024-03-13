@@ -66,6 +66,9 @@ class BigInt {
   static Sign OppositeSign(Sign);
   bool IsSameSignAs(int32_t);
 
+  BigInt GetDivDigit(const BigInt& other) const;
+  uint64_t GetHead(int64_t start_index = 0) const;
+
   friend std::ostream& operator<<(std::ostream& stream, BigInt val);
   friend Sign operator*(const Sign& lhs, const Sign& rhs);
 

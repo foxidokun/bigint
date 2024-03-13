@@ -145,6 +145,18 @@ BigInt& BigInt::operator*=(const BigInt& other) {
   return *this;
 }
 
+BigInt BigInt::GetDivDigit(const BigInt& other) const {
+  uint64_t head_lhs = GetHead();
+  uint64_t head_rhs = other.GetHead((int64_t)digits_.size() - 2);
+
+  if (head_rhs != UINT64_MAX) {
+    return BigInt(std::min(head_lhs / (head_rhs + 1), (uint64_t)INT64_MAX));
+  } else {
+    assert(head_rhs == head_lhs);
+    return BigInt(1);
+  }
+}
+
 // TODO: refactor
 BigInt& BigInt::operator/=(const BigInt& other) {
   if (other == BigInt(1)) {
@@ -160,67 +172,55 @@ BigInt& BigInt::operator/=(const BigInt& other) {
     return *this;
   }
 
+  // Be positive
   auto res_sign = sign_ * other.sign_;
   sign_ = Sign::Positive;
 
-  BigInt div = BigInt(0);
-  std::vector<uint32_t> zeros(
-      std::max(digits_.size() - other.digits_.size(), 1ul) - 1, 0);
+  BigInt div_result = BigInt(0);
 
   std::strong_ordering cmp = std::strong_ordering::equal;
-  // Unoptimal shit
+
   while ((cmp = CompareBuffers(digits_, other.digits_)) ==
          std::strong_ordering::greater) {
-    BigInt cur_div = other;
-    cur_div.sign_ = Sign::Positive;
+    
+    BigInt cur_sub = other;
+    cur_sub.sign_ = Sign::Positive;
 
     uint64_t zero_cnt =
         std::max(digits_.size() - other.digits_.size(), 1ul) - 1;
 
-    cur_div.LeftShift(zero_cnt);
+    cur_sub.LeftShift(zero_cnt);
+    BigInt div_digit = GetDivDigit(cur_sub);
 
-    uint64_t head_lhs = digits_[digits_.size() - 1];
-    uint64_t head_rhs = 0;
-    if (digits_.size() > 1) {
-      head_lhs <<= 32;
-      head_lhs += digits_[digits_.size() - 2];
+    cur_sub *= div_digit;
+    div_digit.LeftShift(zero_cnt);
 
-      assert(digits_.size() - 2 < cur_div.digits_.size());
-      if (digits_.size() == cur_div.digits_.size()) {
-        head_rhs = cur_div.digits_[digits_.size() - 1];
-        head_rhs <<= 32;
-      }
-      head_rhs += cur_div.digits_[digits_.size() - 2];
-
-    } else {
-      assert(cur_div.digits_.size() == 1);
-      head_rhs = cur_div.digits_[digits_.size() - 1];
-    }
-
-    BigInt div_t;
-    if (head_rhs != UINT64_MAX) {
-      div_t = BigInt(std::min(head_lhs / (head_rhs + 1), (uint64_t)INT64_MAX));
-    } else {
-      assert(head_rhs == head_lhs);
-      div_t = BigInt(1);
-    }
-
-    BigInt div_res = BigInt(div_t);
-    div_res.LeftShift(zero_cnt);
-
-    cur_div *= div_t;
-
-    *this -= cur_div;
-    div += div_res;
+    *this -= cur_sub;
+    div_result += div_digit;
   }
 
   if (cmp == std::strong_ordering::equal) {
-    div += 1;
+    div_result += 1;
   }
 
-  *this = std::move(div);
+  *this = std::move(div_result);
   sign_ = res_sign;
   return *this;
+}
+
+uint64_t BigInt::GetHead(int64_t start_index) const {
+  uint64_t ans = 0;
+
+  if (!digits_.empty() && start_index <= static_cast<int64_t>(digits_.size() - 1)) {
+    ans += digits_[digits_.size() - 1];
+  }
+    
+  if (digits_.size() > 1 && start_index <= digits_.size() - 2) {
+    ans <<= 32;
+    ans |= digits_[digits_.size() - 2];
+  }
+
+  return ans;
 }
 
 BigInt& BigInt::operator%=(const BigInt& other) {
