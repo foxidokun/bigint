@@ -247,9 +247,9 @@ TEST(MathTests, DivSimple) {
   EXPECT_EQ("4"_bi, "20"_bi / "5"_bi);
   EXPECT_EQ("0"_bi, "0"_bi  / "5"_bi);
   EXPECT_EQ("1"_bi, "4"_bi / "4"_bi);
-  // EXPECT_EQ("-4"_bi, "-20"_bi / "5"_bi);
-  // EXPECT_EQ("4"_bi, "20"_bi / "5"_bi);
-  // EXPECT_EQ("0"_bi, "0"_bi  / "-5"_bi);
+  EXPECT_EQ("-4"_bi, "-20"_bi / "5"_bi);
+  EXPECT_EQ("4"_bi, "20"_bi / "5"_bi);
+  EXPECT_EQ("0"_bi, "0"_bi  / "-5"_bi);
 }
 
 TEST(MathTests, DivLong) {

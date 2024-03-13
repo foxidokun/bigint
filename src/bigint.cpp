@@ -158,6 +158,9 @@ BigInt& BigInt::operator/=(const BigInt& other) {
     return *this;
   }
 
+  auto res_sign = MulSign(sign_, other.sign_);
+  sign_ = Sign::Positive;
+
   BigInt div = BigInt(0);
   std::vector<uint32_t> zeros(
       std::max(digits_.size() - other.digits_.size(), 1ul) - 1, 0);
@@ -166,6 +169,8 @@ BigInt& BigInt::operator/=(const BigInt& other) {
   // Unoptimal shit
   while ((cmp = CompareBuffers(digits_, other.digits_)) == std::strong_ordering::greater) {
     BigInt cur_div = other;
+    cur_div.sign_ = Sign::Positive;
+
     uint64_t zero_cnt =
         std::max(digits_.size() - other.digits_.size(), 1ul) - 1;
 
@@ -209,7 +214,7 @@ BigInt& BigInt::operator/=(const BigInt& other) {
     cur_div *= div_t;
 
     // assert(CompareBuffers(digits_, cur_div.digits_) !=
-    //        std::strong_ordering::less);
+          //  std::strong_ordering::less);
     // assert(sign_ == Sign::Positive);
     // assert(cur_div.sign_ == Sign::Positive);
     *this -= cur_div;
@@ -221,6 +226,7 @@ BigInt& BigInt::operator/=(const BigInt& other) {
   }
 
   *this = std::move(div);
+  sign_ = res_sign;
   return *this;
 }
 
