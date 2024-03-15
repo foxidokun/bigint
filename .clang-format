@@ -1,12 +1,10 @@
+---
 BasedOnStyle: Google
 ---
 Language: Cpp
-AllowShortFunctionsOnASingleLine: None
-AllowShortIfStatementsOnASingleLine: false
-AllowShortLambdasOnASingleLine: Empty
+# Force pointers to the type for C++.
 DerivePointerAlignment: false
 PointerAlignment: Left
-SortIncludes: false
-PackConstructorInitializers: Never
-BreakConstructorInitializers: BeforeColon
-BreakInheritanceList: AfterComma
+  #DeriveReferenceAlignment: false
+ReferenceAlignment: Left
+AccessModifierOffset: 1

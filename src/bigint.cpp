@@ -1,9 +1,13 @@
 #include "bigint.hpp"
+
 #include <stdint.h>
+
 #include <algorithm>
-#include <compare>
-#include <cstdint>
 #include <cassert>
+#include <climits>
+#include <compare>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <iterator>
 #include <vector>
@@ -14,10 +18,22 @@ static void AddBuffers(std::vector<uint32_t>& lhs,
                        const std::vector<uint32_t>& rhs);
 
 [[nodiscard("You should check for sign change")]] static BigInt::Sign
-SubBuffers(std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs);
+SubBuffers(std::vector<uint32_t>& left_op,
+           const std::vector<uint32_t>& right_op);
 
 static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs,
                                            const std::vector<uint32_t>& rhs);
+
+// ----------------------------------------------------------------------------
+
+namespace {
+template <typename T>
+constexpr std::size_t BitSize() noexcept {
+  return sizeof(T) * CHAR_BIT;
+}
+
+constexpr uint64_t kDecBase = 10;
+};  // namespace
 
 // ----------------------------------------------------------------------------
 
@@ -35,13 +51,13 @@ BigInt::BigInt(int64_t val) {
 
   digits_.emplace_back(val & UINT32_MAX);
   if (val > UINT32_MAX) {
-    val >>= 32;
+    val >>= BitSize<uint32_t>();
     digits_.emplace_back(val);
   }
 }
 
 BigInt::BigInt(std::string_view decimal_input) {
-  auto it = decimal_input.begin();
+  const auto* it = decimal_input.begin();
   if (*it == '-') {
     sign_ = Sign::Negative;
     ++it;
@@ -49,8 +65,8 @@ BigInt::BigInt(std::string_view decimal_input) {
 
   BigInt tmp(0);
 
-  for (auto end = decimal_input.end(); it < end; ++it) {
-    tmp *= 10;
+  for (const auto* end = decimal_input.end(); it < end; ++it) {
+    tmp *= kDecBase;
     tmp += (*it - '0');
   }
 
@@ -108,6 +124,7 @@ BigInt& BigInt::operator-=(const BigInt& other) {
   return *this;
 }
 
+// NOLINTNEXTLINE // temporary
 BigInt& BigInt::operator*=(const BigInt& other) {
   if (sign_ == Sign::Zero) {
     return *this;
@@ -131,7 +148,7 @@ BigInt& BigInt::operator*=(const BigInt& other) {
 
         carry += new_digits[k];
         new_digits[k] = carry & UINT32_MAX;
-        carry >>= 32;
+        carry >>= BitSize<uint32_t>();
       }
     }
   }
@@ -151,13 +168,14 @@ BigInt BigInt::GetDivDigit(const BigInt& other) const {
 
   if (head_rhs != UINT64_MAX) {
     return BigInt(std::min(head_lhs / (head_rhs + 1), (uint64_t)INT64_MAX));
-  } else {
-    assert(head_rhs == head_lhs);
-    return BigInt(1);
-  }
+  } /* else */  // due to clang-tidy
+
+  assert(head_rhs == head_lhs);
+  return BigInt(1);
 }
 
 // TODO: refactor
+// NOLINTNEXTLINE // temporary
 BigInt& BigInt::operator/=(const BigInt& other) {
   if (other == BigInt(1)) {
     return *this;
@@ -186,7 +204,7 @@ BigInt& BigInt::operator/=(const BigInt& other) {
     cur_sub.sign_ = Sign::Positive;
 
     uint64_t zero_cnt =
-        std::max(digits_.size() - other.digits_.size(), 1ul) - 1;
+        std::max(digits_.size() - other.digits_.size(), 1UL) - 1;
 
     cur_sub.LeftShift(zero_cnt);
     BigInt div_digit = GetDivDigit(cur_sub);
@@ -216,7 +234,7 @@ uint64_t BigInt::GetHead(int64_t start_index) const {
   }
 
   if (digits_.size() > 1 && start_index <= digits_.size() - 2) {
-    ans <<= 32;
+    ans <<= BitSize<uint32_t>();
     ans |= digits_[digits_.size() - 2];
   }
 
@@ -248,7 +266,7 @@ BigInt& BigInt::operator+=(int32_t other) {
   for (auto& digit : digits_) {
     carry += digit;
     digit = carry & UINT32_MAX;
-    carry >>= 32;
+    carry >>= BitSize<uint32_t>();
   }
 
   if (carry > 0) {
@@ -258,6 +276,7 @@ BigInt& BigInt::operator+=(int32_t other) {
   return *this;
 }
 
+// NOLINTNEXTLINE // temporary
 BigInt& BigInt::operator-=(int32_t other) {
   if (other == 0) {
     return *this;
@@ -330,7 +349,7 @@ BigInt& BigInt::operator*=(int32_t other) {
   for (auto& digit : digits_) {
     carry += static_cast<uint64_t>(digit) * other;
     digit = carry & UINT32_MAX;
-    carry >>= 32;
+    carry >>= BitSize<uint32_t>();
   }
 
   if (carry > 0) {
@@ -375,11 +394,9 @@ std::strong_ordering BigInt::operator<=>(const BigInt& other) const {
     }
 
     auto buf_cmp = CompareBuffers(digits_, other.digits_);
-    if (sign_ == Sign::Positive) {
-      return buf_cmp;
-    } else {
-      return nullptr <=> buf_cmp;
-    }
+
+    // Thanks to clang-tidy, i can't write if, so eat this
+    return sign_ == Sign::Positive ? buf_cmp : nullptr <=> buf_cmp;
   }
 
   switch (sign_) {
@@ -425,35 +442,21 @@ void BigInt::LeftShift(uint32_t digit_num) {
     return;
   }
 
-  // Dumb iterator to insert zeros
-  struct ZeroGenerator {
-    using iterator_category = std::input_iterator_tag;  // NOLINT
-    using value_type = uint32_t;                        // NOLINT
-    using difference_type = uint32_t;                   // NOLINT
-    using reference = uint32_t;                         // NOLINT
+  // Allocate mem
+  digits_.resize(digits_.size() + digit_num);
 
-    uint32_t operator*() const {
-      return 0;
-    }
+  // Shift digits
+  for (size_t i = digits_.size() - 1; i >= digit_num; --i) {
+    digits_[i] = digits_[i - digit_num];
+  }
 
-    ZeroGenerator& operator++() {
-      --counter;
-      return *this;
-    }
-
-    bool operator==(const ZeroGenerator&) const = default;
-
-    static ZeroGenerator end() {  // NOLINT
-      return ZeroGenerator{0};
-    }
-
-    uint32_t counter;
-  };
-
-  digits_.insert(digits_.begin(), ZeroGenerator{digit_num},
-                 ZeroGenerator::end());
+  // Zerofy smallest digits
+  for (size_t i = 0; i < digit_num; ++i) {
+    digits_[i] = 0;
+  }
 }
 
+// NOLINTNEXTLINE // temporary
 static void AddBuffers(std::vector<uint32_t>& lhs,
                        const std::vector<uint32_t>& rhs) {
   uint64_t carry = 0;
@@ -466,17 +469,17 @@ static void AddBuffers(std::vector<uint32_t>& lhs,
 
   // Precompute iterators
   auto lhs_it = lhs.begin();
-  const auto lhs_end = lhs.end();
+  auto lhs_end = lhs.end();
 
   auto rhs_it = rhs.cbegin();
-  const auto rhs_end = rhs.cend();
+  auto rhs_end = rhs.cend();
 
   // Process common
   for (; lhs_it < lhs_end && rhs_it < rhs_end; ++lhs_it, ++rhs_it) {
     carry =
         static_cast<uint64_t>(*lhs_it) + static_cast<uint64_t>(*rhs_it) + carry;
     *lhs_it = carry & UINT32_MAX;
-    carry >>= 32;
+    carry >>= BitSize<uint32_t>();
   }
 
   // Case 1: size(lhs) >= size(rhs)
@@ -487,7 +490,7 @@ static void AddBuffers(std::vector<uint32_t>& lhs,
     for (; carry > 0 && lhs_it != lhs_end; ++lhs_it) {
       carry += *lhs_it;
       *lhs_it = carry & UINT32_MAX;
-      carry >>= 32;
+      carry >>= BitSize<uint32_t>();
     }
 
     // NOTE: Dangerous case goes here
@@ -502,11 +505,12 @@ static void AddBuffers(std::vector<uint32_t>& lhs,
   for (; rhs_it != rhs_end; ++rhs_it) {
     carry += *rhs_it;
     lhs.emplace_back(carry & UINT32_MAX);
-    carry >>= 32;
+    carry >>= BitSize<uint32_t>();
   }
 }
 
 [[nodiscard("You should check for sign = zero")]] static BigInt::Sign
+// NOLINTNEXTLINE // temporary
 SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
              std::vector<uint32_t>& out) {
   out.reserve(lhs.size());
@@ -515,8 +519,8 @@ SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
   auto lhs_it = lhs.begin();
   auto rhs_it = rhs.begin();
   auto out_it = out.begin();
-  const auto lhs_end = lhs.end();
-  const auto rhs_end = rhs.end();
+  auto lhs_end = lhs.end();  // оно было бы константным, если бы не clang tidy
+  auto rhs_end = rhs.end();  // оно было бы константным, если бы не clang tidy
 
   // Substraction phase
   for (; lhs_it < lhs_end && rhs_it < rhs_end; ++lhs_it, ++rhs_it, ++out_it) {
@@ -551,11 +555,7 @@ SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
     out.pop_back();
   }
 
-  if (out.empty()) {
-    return BigInt::Sign::Zero;
-  } else {
-    return BigInt::Sign::Positive;
-  }
+  return out.empty() ? BigInt::Sign::Zero : BigInt::Sign::Positive;
 }
 
 BigInt::Sign operator*(const BigInt::Sign& lhs, const BigInt::Sign& rhs) {
@@ -563,30 +563,30 @@ BigInt::Sign operator*(const BigInt::Sign& lhs, const BigInt::Sign& rhs) {
     return BigInt::Sign::Zero;
   }
 
-  if (lhs == rhs) {
-    return BigInt::Sign::Positive;
-  } else {
-    return BigInt::Sign::Negative;
-  }
+  return lhs == rhs ? BigInt::Sign::Positive : BigInt::Sign::Negative;
 }
 
-static BigInt::Sign SubBuffers(std::vector<uint32_t>& lhs,
-                               const std::vector<uint32_t>& rhs) {
+// breaking naming due to clang-tidy: readability-suspicious-call-argument
+static BigInt::Sign SubBuffers(std::vector<uint32_t>& left_op,
+                               const std::vector<uint32_t>& right_op) {
   // lhs >= rhs
-  if (CompareBuffers(lhs, rhs) != std::strong_ordering::less) {
-    auto sign = SubBuffersTo(lhs, rhs, lhs);
+  if (CompareBuffers(left_op, right_op) != std::strong_ordering::less) {
+    auto sign = SubBuffersTo(left_op, right_op, left_op);
     return sign * BigInt::Sign::Positive;
-  } else {
-    auto sign = SubBuffersTo(rhs, lhs, lhs);
-    return sign * BigInt::Sign::Negative;
   }
+  /* else */  // due to cringe clang-tidy: readability-else-after-return
+
+  auto sign = SubBuffersTo(right_op, left_op, left_op);
+  return sign * BigInt::Sign::Negative;
 }
 
 static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs,
                                            const std::vector<uint32_t>& rhs) {
   if (lhs.size() > rhs.size()) {
     return std::strong_ordering::greater;
-  } else if (lhs.size() < rhs.size()) {
+  }
+
+  if (lhs.size() < rhs.size()) {
     return std::strong_ordering::less;
   }
 
@@ -595,7 +595,7 @@ static std::strong_ordering CompareBuffers(const std::vector<uint32_t>& lhs,
 }
 
 std::ostream& operator<<(std::ostream& stream, BigInt val) {
-  BigInt base(10);
+  BigInt base(kDecBase);
   std::string buf;
 
   while (val) {
