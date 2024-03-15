@@ -6,7 +6,7 @@
 #include <vector>
 
 class BigInt {
-   public:
+ public:
   enum class Sign : int8_t { Negative, Zero, Positive };
 
   // default ctor
@@ -55,7 +55,7 @@ class BigInt {
 
   void LeftShift(uint32_t digit_num);
 
-   private:
+ private:
   BigInt(Sign sign, std::vector<uint32_t> digits)
       : sign_(sign), digits_(std::move(digits)) {}
 
