@@ -604,12 +604,23 @@ std::ostream& operator<<(std::ostream& stream, BigInt val) {
   BigInt base(kDecBase);
   std::string buf;
 
+  if (val.sign_ == BigInt::Sign::Zero) {
+    stream << "0";
+    return stream;
+  }
+
+  bool was_negative = (val.sign_ == BigInt::Sign::Negative);
+
   while (val) {
-    buf += (val % base).digits_[0];
+    buf += '0' + (val % base).digits_[0];
     val /= base;
   }
 
-  std::copy(buf.crbegin(), buf.crend(), std::ostream_iterator<int>(stream));
+  if (was_negative) {
+    buf += '-';
+  }
+
+  std::copy(buf.crbegin(), buf.crend(), std::ostream_iterator<char>(stream));
 
   return stream;
 }
