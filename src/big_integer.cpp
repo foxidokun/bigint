@@ -462,21 +462,30 @@ void BigInt::LeftShift(uint32_t digit_num) {
   }
 }
 
-// NOLINTNEXTLINE // temporary
+template <typename It>
+static void PropagateAddCarry(uint64_t carry, It& lhs_it,
+                              std::vector<uint32_t>& lhs) {
+  auto lhs_end = lhs.end();
+
+  for (; carry > 0 && lhs_it != lhs_end; ++lhs_it) {
+    carry += *lhs_it;
+    *lhs_it = carry & UINT32_MAX;
+    carry >>= BitSize<uint32_t>();
+  }
+  if (carry != 0) {
+    assert(lhs_it == lhs_end);
+    lhs.emplace_back(carry);
+  }
+}
+
 static void AddBuffers(std::vector<uint32_t>& lhs,
                        const std::vector<uint32_t>& rhs) {
   uint64_t carry = 0;
-
-  // Reserve space so we won't invalidate iterators
-  // NOTE: We should be carefull if size(lhs + rhs) > max(size(lhs), size(rhs))
-  // and it would cause reallocation
-  //   you can track it by «Dangerous case goes here» comments
   lhs.reserve(rhs.size());
 
   // Precompute iterators
   auto lhs_it = lhs.begin();
   auto lhs_end = lhs.end();
-
   auto rhs_it = rhs.cbegin();
   auto rhs_end = rhs.cend();
 
@@ -488,23 +497,8 @@ static void AddBuffers(std::vector<uint32_t>& lhs,
     carry >>= BitSize<uint32_t>();
   }
 
-  // Case 1: size(lhs) >= size(rhs)
-  // NOTE: Dangerous case goes here
   if (rhs_it == rhs_end) {
-    // Add last carry
-    // NOTE: Dangerous case skip this loop
-    for (; carry > 0 && lhs_it != lhs_end; ++lhs_it) {
-      carry += *lhs_it;
-      *lhs_it = carry & UINT32_MAX;
-      carry >>= BitSize<uint32_t>();
-    }
-
-    // NOTE: Dangerous case goes here
-    if (carry != 0) {
-      assert(lhs_it == lhs_end);
-      lhs.emplace_back(carry);
-    }
-
+    PropagateAddCarry(carry, lhs_it, lhs);
     return;
   }
 
