@@ -42,11 +42,13 @@ BigInt::BigInt(int64_t val) {
     return;
   }
 
-  uint64_t val_abs = (val != INT64_MIN) ? -val : static_cast<uint64_t>(INT64_MAX) + 1;
+  uint64_t val_abs;
 
   if (val > 0) {
+    val_abs = static_cast<uint64_t>(val);
     sign_ = Sign::Positive;
   } else {
+    val_abs = (val != INT64_MIN) ? -val : static_cast<uint64_t>(INT64_MAX) + 1;
     sign_ = Sign::Negative;
   }
 
