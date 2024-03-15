@@ -230,8 +230,7 @@ uint64_t BigInt::GetHead(int64_t start_index) const {
 
   int64_t num_of_digits = static_cast<int64_t>(digits_.size());
 
-  if (!digits_.empty() &&
-      start_index <= num_of_digits - 1) {
+  if (!digits_.empty() && start_index <= num_of_digits - 1) {
     ans += digits_[digits_.size() - 1];
   }
 
