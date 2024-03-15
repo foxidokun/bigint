@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <bigint.hpp>
+#include <big_integer.hpp>
 #include <cstdint>
 #include <sstream>
 

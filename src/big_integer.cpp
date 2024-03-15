@@ -1,4 +1,4 @@
-#include "bigint.hpp"
+#include "big_integer.hpp"
 
 #include <stdint.h>
 
@@ -42,17 +42,18 @@ BigInt::BigInt(int64_t val) {
     return;
   }
 
+  uint64_t val_abs = (val != INT64_MIN) ? -val : static_cast<uint64_t>(INT64_MAX) + 1;
+
   if (val > 0) {
     sign_ = Sign::Positive;
   } else {
     sign_ = Sign::Negative;
-    val = -val;
   }
 
-  digits_.emplace_back(val & UINT32_MAX);
-  if (val > UINT32_MAX) {
-    val >>= BitSize<uint32_t>();
-    digits_.emplace_back(val);
+  digits_.emplace_back(val_abs & UINT32_MAX);
+  if (val_abs > UINT32_MAX) {
+    val_abs >>= BitSize<uint32_t>();
+    digits_.emplace_back(val_abs);
   }
 }
 
@@ -430,6 +431,8 @@ BigInt::Sign BigInt::OppositeSign(Sign sign) {
     case Sign::Positive:
       return Sign::Negative;
   }
+
+  assert(false);  // unreachable
 }
 
 bool BigInt::IsSameSignAs(int32_t val) {
