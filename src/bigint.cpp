@@ -143,7 +143,7 @@ BigInt& BigInt::operator*=(const BigInt& other) {
     for (uint64_t j = 0; j < other.digits_.size(); ++j) {
       uint64_t carry = static_cast<uint64_t>(digits_[i]) * other.digits_[j];
 
-      for (int k = i + j; carry > 0; ++k) {
+      for (size_t k = i + j; carry > 0; ++k) {
         assert(k < new_digits.size());
 
         carry += new_digits[k];
@@ -228,12 +228,14 @@ BigInt& BigInt::operator/=(const BigInt& other) {
 uint64_t BigInt::GetHead(int64_t start_index) const {
   uint64_t ans = 0;
 
+  int64_t num_of_digits = static_cast<int64_t>(digits_.size());
+
   if (!digits_.empty() &&
-      start_index <= static_cast<int64_t>(digits_.size() - 1)) {
+      start_index <= num_of_digits - 1) {
     ans += digits_[digits_.size() - 1];
   }
 
-  if (digits_.size() > 1 && start_index <= digits_.size() - 2) {
+  if (digits_.size() > 1 && start_index <= num_of_digits - 2) {
     ans <<= BitSize<uint32_t>();
     ans |= digits_[digits_.size() - 2];
   }
