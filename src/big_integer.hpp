@@ -64,6 +64,7 @@ class BigInt {
 
   BigInt GetDivDigit(const BigInt& other) const;
   uint64_t GetHead(int64_t start_index = 0) const;
+  BigInt DivOneIter(const BigInt& other);
 
   friend std::ostream& operator<<(std::ostream& stream, BigInt val);
   friend Sign operator*(const Sign& lhs, const Sign& rhs);

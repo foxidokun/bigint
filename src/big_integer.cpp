@@ -189,46 +189,40 @@ BigInt BigInt::GetDivDigit(const BigInt& other) const {
   return BigInt(1);
 }
 
-// TODO: refactor
-// NOLINTNEXTLINE // temporary
+// return div result
+BigInt BigInt::DivOneIter(const BigInt& other) {
+  BigInt cur_sub = other;
+  cur_sub.sign_ = Sign::Positive;
+
+  uint64_t zero_cnt = std::max(digits_.size() - other.digits_.size(), 1UL) - 1;
+
+  cur_sub.LeftShift(zero_cnt);
+  BigInt div_digit = GetDivDigit(cur_sub);
+
+  cur_sub *= div_digit;
+  div_digit.LeftShift(zero_cnt);
+
+  *this -= cur_sub;
+  return div_digit;
+}
+
 BigInt& BigInt::operator/=(const BigInt& other) {
-  if (other == BigInt(1)) {
+  if (other == BigInt(1) || sign_ == Sign::Zero) {
     return *this;
   }
-
-  if (sign_ == Sign::Zero) {
-    return *this;
-  }
-
   if (CompareBuffers(digits_, other.digits_) == std::strong_ordering::less) {
     *this = BigInt(0);
     return *this;
   }
 
-  // Be positive
   auto res_sign = sign_ * other.sign_;
   sign_ = Sign::Positive;
-
   BigInt div_result = BigInt(0);
-
   std::strong_ordering cmp = std::strong_ordering::equal;
 
   while ((cmp = CompareBuffers(digits_, other.digits_)) ==
          std::strong_ordering::greater) {
-    BigInt cur_sub = other;
-    cur_sub.sign_ = Sign::Positive;
-
-    uint64_t zero_cnt =
-        std::max(digits_.size() - other.digits_.size(), 1UL) - 1;
-
-    cur_sub.LeftShift(zero_cnt);
-    BigInt div_digit = GetDivDigit(cur_sub);
-
-    cur_sub *= div_digit;
-    div_digit.LeftShift(zero_cnt);
-
-    *this -= cur_sub;
-    div_result += div_digit;
+    div_result += DivOneIter(other);
   }
 
   if (cmp == std::strong_ordering::equal) {
@@ -478,6 +472,8 @@ static void PropagateAddCarry(uint64_t carry, It& lhs_it,
   }
 }
 
+// You can look at the code documentation in the git history, it didn't fit in
+// clang tidy limits
 static void AddBuffers(std::vector<uint32_t>& lhs,
                        const std::vector<uint32_t>& rhs) {
   uint64_t carry = 0;
@@ -540,8 +536,8 @@ SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
   auto lhs_it = lhs.begin();
   auto rhs_it = rhs.begin();
   auto out_it = out.begin();
-  auto lhs_end = lhs.end();  // оно было бы константным, если бы не clang tidy
-  auto rhs_end = rhs.end();  // оно было бы константным, если бы не clang tidy
+  auto lhs_end = lhs.end();  // it would be constant if there were no clang tidy
+  auto rhs_end = rhs.end();  // it would be constant if there were no clang tidy
 
   // Substract common phase
   uint64_t carry = SubstracCommon(lhs_it, lhs_end, rhs_it, rhs_end, out_it);
