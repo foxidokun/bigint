@@ -33,6 +33,18 @@ constexpr std::size_t BitSize() noexcept {
 }
 
 constexpr uint64_t kDecBase = 10;
+
+BigInt::Sign SignFromCmp(std::strong_ordering cmp) {
+  if (cmp == std::strong_ordering::less) {
+    return BigInt::Sign::Negative;
+  }
+
+  if (cmp == std::strong_ordering::greater) {
+    return BigInt::Sign::Positive;
+  }
+
+  return BigInt::Sign::Zero;
+}
 };  // namespace
 
 // ----------------------------------------------------------------------------
@@ -280,55 +292,47 @@ BigInt& BigInt::operator+=(int32_t other) {
   return *this;
 }
 
-// NOLINTNEXTLINE // temporary
+template <typename InputIt, typename OutputIt>
+static void PropagateSubCarry(uint64_t carry, InputIt lhs_it, OutputIt out_it) {
+  for (; carry > 0; ++lhs_it, ++out_it) {
+    uint64_t digit = *lhs_it;
+    if (digit >= carry) {
+      *out_it = digit - carry;
+      carry = 0;
+    } else {
+      *out_it = UINT32_MAX - carry + digit + 1;
+      carry = 1;
+    }
+  }
+}
+
 BigInt& BigInt::operator-=(int32_t other) {
   if (other == 0) {
     return *this;
   }
-
   if (sign_ == Sign::Zero) {
     *this = BigInt(-other);
     return *this;
   }
-
-  uint64_t carry = (other > 0) ? other : -other;
-
   if (!IsSameSignAs(other)) {
     *this += -other;
     return *this;
   }
 
+  uint64_t carry = (other > 0) ? other : -other;
+
   if (digits_.size() == 1) {
-    if (digits_[0] > carry) {
-      digits_[0] -= carry;
-    } else if (digits_[0] < carry) {
-      digits_[0] = carry - digits_[0];
-      sign_ = OppositeSign(sign_);
-    } else {
-      digits_.clear();
-      sign_ = Sign::Zero;
-    }
-
-    return *this;
-  }
-
-  for (auto& digit : digits_) {
-    if (digit >= carry) {
-      digit = digit - carry;
-      carry = 0;
-    } else {
-      digit = UINT32_MAX - carry + digit;
-      carry = 1;
-    }
+    sign_ = sign_ * SignFromCmp(digits_[0] <=> carry);
+    digits_[0] = std::abs(static_cast<int64_t>(digits_[0]) -
+                          static_cast<int64_t>(carry));
+  } else {
+    PropagateSubCarry(carry, digits_.begin(), digits_.begin());
   }
 
   // GC if needed
   if (digits_[digits_.size() - 1] == 0) {
     digits_.pop_back();
   }
-
-  assert(carry == 0);
-  assert(digits_[digits_.size() - 1] != 0);
 
   return *this;
 }
@@ -515,20 +519,13 @@ static void AddBuffers(std::vector<uint32_t>& lhs,
   }
 }
 
-[[nodiscard("You should check for sign = zero")]] static BigInt::Sign
-// NOLINTNEXTLINE // temporary
-SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
-             std::vector<uint32_t>& out) {
-  out.reserve(lhs.size());
-
+// Return: carry
+template <typename InputIt, typename OutputIt>
+static uint64_t SubstracCommon(InputIt& lhs_it, const InputIt& lhs_end,
+                               InputIt& rhs_it, const InputIt& rhs_end,
+                               OutputIt& out_it) {
   uint64_t carry = 0;
-  auto lhs_it = lhs.begin();
-  auto rhs_it = rhs.begin();
-  auto out_it = out.begin();
-  auto lhs_end = lhs.end();  // оно было бы константным, если бы не clang tidy
-  auto rhs_end = rhs.end();  // оно было бы константным, если бы не clang tidy
 
-  // Substraction phase
   for (; lhs_it < lhs_end && rhs_it < rhs_end; ++lhs_it, ++rhs_it, ++out_it) {
     carry += *rhs_it;
     uint64_t digit = *lhs_it;
@@ -542,21 +539,27 @@ SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
     }
   }
 
-  for (; lhs_it < lhs_end; ++lhs_it, ++out_it) {
-    uint64_t digit = *lhs_it;
+  return carry;
+}
 
-    if (digit >= carry) {
-      *out_it = digit - carry;
-      carry = 0;
-    } else {
-      *out_it = UINT32_MAX - carry + digit + 1;
-      carry = 1;
-    }
-  }
+[[nodiscard("You should check for sign = zero")]] static BigInt::Sign
+SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
+             std::vector<uint32_t>& out) {
+  out.reserve(lhs.size());
 
-  assert(carry == 0);
+  auto lhs_it = lhs.begin();
+  auto rhs_it = rhs.begin();
+  auto out_it = out.begin();
+  auto lhs_end = lhs.end();  // оно было бы константным, если бы не clang tidy
+  auto rhs_end = rhs.end();  // оно было бы константным, если бы не clang tidy
 
-  // GC Stage
+  // Substract common phase
+  uint64_t carry = SubstracCommon(lhs_it, lhs_end, rhs_it, rhs_end, out_it);
+
+  // Propagate carry
+  PropagateSubCarry(carry, lhs_it, out_it);
+
+  // GC phase
   while (!out.empty() && out[out.size() - 1] == 0) {
     out.pop_back();
   }
@@ -580,6 +583,7 @@ static BigInt::Sign SubBuffers(std::vector<uint32_t>& left_op,
     auto sign = SubBuffersTo(left_op, right_op, left_op);
     return sign * BigInt::Sign::Positive;
   }
+
   /* else */  // due to cringe clang-tidy: readability-else-after-return
 
   auto sign = SubBuffersTo(right_op, left_op, left_op);
