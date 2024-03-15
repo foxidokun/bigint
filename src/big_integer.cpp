@@ -45,6 +45,12 @@ BigInt::Sign SignFromCmp(std::strong_ordering cmp) {
 
   return BigInt::Sign::Zero;
 }
+
+void GCDigits(std::vector<uint32_t>& digits) {
+  while (!digits.empty() && digits[digits.size() - 1] == 0) {
+    digits.pop_back();
+  }
+}
 };  // namespace
 
 // ----------------------------------------------------------------------------
@@ -139,19 +145,16 @@ BigInt& BigInt::operator-=(const BigInt& other) {
   return *this;
 }
 
-// NOLINTNEXTLINE // temporary
 BigInt& BigInt::operator*=(const BigInt& other) {
   if (sign_ == Sign::Zero) {
     return *this;
   }
-
   if (other.sign_ == Sign::Zero) {
     *this = BigInt(0);
     return *this;
   }
 
   sign_ = sign_ * other.sign_;
-
   std::vector<uint32_t> new_digits(digits_.size() + other.digits_.size(), 0);
 
   for (uint64_t i = 0; i < digits_.size(); ++i) {
@@ -169,10 +172,7 @@ BigInt& BigInt::operator*=(const BigInt& other) {
   }
 
   digits_ = std::move(new_digits);
-
-  while (digits_[digits_.size() - 1] == 0) {
-    digits_.pop_back();
-  }
+  GCDigits(digits_);
 
   return *this;
 }
@@ -329,11 +329,7 @@ BigInt& BigInt::operator-=(int32_t other) {
     PropagateSubCarry(carry, digits_.begin(), digits_.begin());
   }
 
-  // GC if needed
-  if (digits_[digits_.size() - 1] == 0) {
-    digits_.pop_back();
-  }
-
+  GCDigits(digits_);
   return *this;
 }
 
@@ -559,10 +555,7 @@ SubBuffersTo(const std::vector<uint32_t>& lhs, const std::vector<uint32_t>& rhs,
   // Propagate carry
   PropagateSubCarry(carry, lhs_it, out_it);
 
-  // GC phase
-  while (!out.empty() && out[out.size() - 1] == 0) {
-    out.pop_back();
-  }
+  GCDigits(out);
 
   return out.empty() ? BigInt::Sign::Zero : BigInt::Sign::Positive;
 }
