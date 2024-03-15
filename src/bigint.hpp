@@ -21,7 +21,7 @@ class BigInt {
   BigInt& operator=(BigInt&& other) = default;
 
   // constructing from other types
-  explicit BigInt(int64_t);
+  BigInt(int64_t);
   explicit BigInt(std::string_view);
 
   // Some convertions
